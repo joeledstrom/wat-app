@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+
+package wat_api;
+
+service Wat {
+    rpc ChatConnection(stream ClientMessage) returns (stream ServerMessage) {}
+}
+
+message ClientMessage {
+    string sender = 1;
+    string content = 2;
+}
+
+message ServerMessage {
+    ClientMessage message = 1;
+    google.protobuf.Timestamp timestamp = 2;
+}
