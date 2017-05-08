@@ -7,6 +7,9 @@ import (
 
 	pb "github.com/joeledstrom/wat-app/wat-api"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
+	"fmt"
 )
 
 
@@ -27,10 +30,33 @@ func main() {
 	if err != nil {
 		log.Panicln(err)
 	}
+	defer conn.Close()
 
 	client := pb.NewWatClient(conn)
 
-	chatConn, err := client.ChatConnection(context.Background())
+
+	ip := "kaka"  // TODO: fetch this from http://bot.whatismyipaddress.com/
+
+	reg := &pb.Registration{Nick:*nick, Ip:ip}
+
+	resp, err := client.RegisterClient(context.Background(), reg)
+
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	if (resp.Status == pb.RegistrationResponse_NICK_ALREADY_IN_USE) {
+		fmt.Println("Nick Already in use. Try another nick")
+		return
+	}
+
+
+	md := metadata.Pairs("token", resp.Token)
+
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+
+	chatConn, err := client.OpenChat(ctx)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -41,7 +67,7 @@ func main() {
 	go func() {
 		for {
 			content := <-sendChannel
-			msg := pb.ClientMessage{Sender: *nick, Content: content}
+			msg := pb.ClientMessage{Content: content}
 			err = chatConn.Send(&msg)
 			if err != nil {
 				break
@@ -55,7 +81,7 @@ func main() {
 			if err != nil {
 				break
 			}
-			recvChannel <- msg.Message.Content
+			recvChannel <- (msg.Nick + ": " + msg.Content)
 		}
 	}()
 

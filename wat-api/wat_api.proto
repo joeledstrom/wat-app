@@ -1,20 +1,35 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 
 package wat_api;
 
 service Wat {
-    rpc ChatConnection(stream ClientMessage) returns (stream ServerMessage) {}
+    rpc RegisterClient(Registration) returns (RegistrationResponse);
+    rpc OpenChat(stream ClientMessage) returns (stream ServerMessage);
 }
 
+
+message Registration {
+    string nick = 1;
+    string ip = 2;
+}
+
+message RegistrationResponse {
+    enum Status {
+        OK = 0;
+        NICK_ALREADY_IN_USE = 1;
+    }
+    Status status = 1;
+    string token = 2;
+}
+
+
 message ClientMessage {
-    string sender = 1;
     string content = 2;
 }
 
 message ServerMessage {
-    ClientMessage message = 1;
-    google.protobuf.Timestamp timestamp = 2;
+    string nick = 1;
+    string content = 2;
+    string ip = 3;
 }

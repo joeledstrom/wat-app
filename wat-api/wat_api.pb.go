@@ -9,6 +9,8 @@ It is generated from these files:
 	wat_api.proto
 
 It has these top-level messages:
+	Registration
+	RegistrationResponse
 	ClientMessage
 	ServerMessage
 */
@@ -17,7 +19,6 @@ package wat_api
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
 
 import (
 	context "golang.org/x/net/context"
@@ -35,22 +36,85 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type RegistrationResponse_Status int32
+
+const (
+	RegistrationResponse_OK                  RegistrationResponse_Status = 0
+	RegistrationResponse_NICK_ALREADY_IN_USE RegistrationResponse_Status = 1
+)
+
+var RegistrationResponse_Status_name = map[int32]string{
+	0: "OK",
+	1: "NICK_ALREADY_IN_USE",
+}
+var RegistrationResponse_Status_value = map[string]int32{
+	"OK": 0,
+	"NICK_ALREADY_IN_USE": 1,
+}
+
+func (x RegistrationResponse_Status) String() string {
+	return proto.EnumName(RegistrationResponse_Status_name, int32(x))
+}
+func (RegistrationResponse_Status) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{1, 0}
+}
+
+type Registration struct {
+	Nick string `protobuf:"bytes,1,opt,name=nick" json:"nick,omitempty"`
+	Ip   string `protobuf:"bytes,2,opt,name=ip" json:"ip,omitempty"`
+}
+
+func (m *Registration) Reset()                    { *m = Registration{} }
+func (m *Registration) String() string            { return proto.CompactTextString(m) }
+func (*Registration) ProtoMessage()               {}
+func (*Registration) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
+func (m *Registration) GetNick() string {
+	if m != nil {
+		return m.Nick
+	}
+	return ""
+}
+
+func (m *Registration) GetIp() string {
+	if m != nil {
+		return m.Ip
+	}
+	return ""
+}
+
+type RegistrationResponse struct {
+	Status RegistrationResponse_Status `protobuf:"varint,1,opt,name=status,enum=wat_api.RegistrationResponse_Status" json:"status,omitempty"`
+	Token  string                      `protobuf:"bytes,2,opt,name=token" json:"token,omitempty"`
+}
+
+func (m *RegistrationResponse) Reset()                    { *m = RegistrationResponse{} }
+func (m *RegistrationResponse) String() string            { return proto.CompactTextString(m) }
+func (*RegistrationResponse) ProtoMessage()               {}
+func (*RegistrationResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *RegistrationResponse) GetStatus() RegistrationResponse_Status {
+	if m != nil {
+		return m.Status
+	}
+	return RegistrationResponse_OK
+}
+
+func (m *RegistrationResponse) GetToken() string {
+	if m != nil {
+		return m.Token
+	}
+	return ""
+}
+
 type ClientMessage struct {
-	Sender  string `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
 	Content string `protobuf:"bytes,2,opt,name=content" json:"content,omitempty"`
 }
 
 func (m *ClientMessage) Reset()                    { *m = ClientMessage{} }
 func (m *ClientMessage) String() string            { return proto.CompactTextString(m) }
 func (*ClientMessage) ProtoMessage()               {}
-func (*ClientMessage) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
-
-func (m *ClientMessage) GetSender() string {
-	if m != nil {
-		return m.Sender
-	}
-	return ""
-}
+func (*ClientMessage) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *ClientMessage) GetContent() string {
 	if m != nil {
@@ -60,32 +124,43 @@ func (m *ClientMessage) GetContent() string {
 }
 
 type ServerMessage struct {
-	Message   *ClientMessage             `protobuf:"bytes,1,opt,name=message" json:"message,omitempty"`
-	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+	Nick    string `protobuf:"bytes,1,opt,name=nick" json:"nick,omitempty"`
+	Content string `protobuf:"bytes,2,opt,name=content" json:"content,omitempty"`
+	Ip      string `protobuf:"bytes,3,opt,name=ip" json:"ip,omitempty"`
 }
 
 func (m *ServerMessage) Reset()                    { *m = ServerMessage{} }
 func (m *ServerMessage) String() string            { return proto.CompactTextString(m) }
 func (*ServerMessage) ProtoMessage()               {}
-func (*ServerMessage) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*ServerMessage) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *ServerMessage) GetMessage() *ClientMessage {
+func (m *ServerMessage) GetNick() string {
 	if m != nil {
-		return m.Message
+		return m.Nick
 	}
-	return nil
+	return ""
 }
 
-func (m *ServerMessage) GetTimestamp() *google_protobuf.Timestamp {
+func (m *ServerMessage) GetContent() string {
 	if m != nil {
-		return m.Timestamp
+		return m.Content
 	}
-	return nil
+	return ""
+}
+
+func (m *ServerMessage) GetIp() string {
+	if m != nil {
+		return m.Ip
+	}
+	return ""
 }
 
 func init() {
+	proto.RegisterType((*Registration)(nil), "wat_api.Registration")
+	proto.RegisterType((*RegistrationResponse)(nil), "wat_api.RegistrationResponse")
 	proto.RegisterType((*ClientMessage)(nil), "wat_api.ClientMessage")
 	proto.RegisterType((*ServerMessage)(nil), "wat_api.ServerMessage")
+	proto.RegisterEnum("wat_api.RegistrationResponse_Status", RegistrationResponse_Status_name, RegistrationResponse_Status_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -99,7 +174,8 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for Wat service
 
 type WatClient interface {
-	ChatConnection(ctx context.Context, opts ...grpc.CallOption) (Wat_ChatConnectionClient, error)
+	RegisterClient(ctx context.Context, in *Registration, opts ...grpc.CallOption) (*RegistrationResponse, error)
+	OpenChat(ctx context.Context, opts ...grpc.CallOption) (Wat_OpenChatClient, error)
 }
 
 type watClient struct {
@@ -110,30 +186,39 @@ func NewWatClient(cc *grpc.ClientConn) WatClient {
 	return &watClient{cc}
 }
 
-func (c *watClient) ChatConnection(ctx context.Context, opts ...grpc.CallOption) (Wat_ChatConnectionClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Wat_serviceDesc.Streams[0], c.cc, "/wat_api.Wat/ChatConnection", opts...)
+func (c *watClient) RegisterClient(ctx context.Context, in *Registration, opts ...grpc.CallOption) (*RegistrationResponse, error) {
+	out := new(RegistrationResponse)
+	err := grpc.Invoke(ctx, "/wat_api.Wat/RegisterClient", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &watChatConnectionClient{stream}
+	return out, nil
+}
+
+func (c *watClient) OpenChat(ctx context.Context, opts ...grpc.CallOption) (Wat_OpenChatClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Wat_serviceDesc.Streams[0], c.cc, "/wat_api.Wat/OpenChat", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &watOpenChatClient{stream}
 	return x, nil
 }
 
-type Wat_ChatConnectionClient interface {
+type Wat_OpenChatClient interface {
 	Send(*ClientMessage) error
 	Recv() (*ServerMessage, error)
 	grpc.ClientStream
 }
 
-type watChatConnectionClient struct {
+type watOpenChatClient struct {
 	grpc.ClientStream
 }
 
-func (x *watChatConnectionClient) Send(m *ClientMessage) error {
+func (x *watOpenChatClient) Send(m *ClientMessage) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *watChatConnectionClient) Recv() (*ServerMessage, error) {
+func (x *watOpenChatClient) Recv() (*ServerMessage, error) {
 	m := new(ServerMessage)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -144,32 +229,51 @@ func (x *watChatConnectionClient) Recv() (*ServerMessage, error) {
 // Server API for Wat service
 
 type WatServer interface {
-	ChatConnection(Wat_ChatConnectionServer) error
+	RegisterClient(context.Context, *Registration) (*RegistrationResponse, error)
+	OpenChat(Wat_OpenChatServer) error
 }
 
 func RegisterWatServer(s *grpc.Server, srv WatServer) {
 	s.RegisterService(&_Wat_serviceDesc, srv)
 }
 
-func _Wat_ChatConnection_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(WatServer).ChatConnection(&watChatConnectionServer{stream})
+func _Wat_RegisterClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Registration)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WatServer).RegisterClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/wat_api.Wat/RegisterClient",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WatServer).RegisterClient(ctx, req.(*Registration))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type Wat_ChatConnectionServer interface {
+func _Wat_OpenChat_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(WatServer).OpenChat(&watOpenChatServer{stream})
+}
+
+type Wat_OpenChatServer interface {
 	Send(*ServerMessage) error
 	Recv() (*ClientMessage, error)
 	grpc.ServerStream
 }
 
-type watChatConnectionServer struct {
+type watOpenChatServer struct {
 	grpc.ServerStream
 }
 
-func (x *watChatConnectionServer) Send(m *ServerMessage) error {
+func (x *watOpenChatServer) Send(m *ServerMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *watChatConnectionServer) Recv() (*ClientMessage, error) {
+func (x *watOpenChatServer) Recv() (*ClientMessage, error) {
 	m := new(ClientMessage)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -180,11 +284,16 @@ func (x *watChatConnectionServer) Recv() (*ClientMessage, error) {
 var _Wat_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "wat_api.Wat",
 	HandlerType: (*WatServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RegisterClient",
+			Handler:    _Wat_RegisterClient_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "ChatConnection",
-			Handler:       _Wat_ChatConnection_Handler,
+			StreamName:    "OpenChat",
+			Handler:       _Wat_OpenChat_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
@@ -195,19 +304,24 @@ var _Wat_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("wat_api.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 219 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x8e, 0x31, 0x4f, 0x85, 0x30,
-	0x14, 0x85, 0xad, 0x26, 0x8f, 0xbc, 0xfb, 0x82, 0x43, 0x87, 0x17, 0xc2, 0xa2, 0x61, 0x62, 0x2a,
-	0x04, 0x17, 0x57, 0x43, 0xe2, 0xc6, 0x82, 0x26, 0x8e, 0xa6, 0xe0, 0x15, 0x9b, 0x40, 0x4b, 0xda,
-	0xab, 0x0e, 0xfe, 0x79, 0x93, 0x42, 0x25, 0x0c, 0x6e, 0x3d, 0xb7, 0x5f, 0xce, 0xf9, 0x20, 0xfe,
-	0x96, 0xf4, 0x2a, 0x67, 0x25, 0x66, 0x6b, 0xc8, 0xf0, 0x68, 0x8d, 0xe9, 0xcd, 0x60, 0xcc, 0x30,
-	0x62, 0xe1, 0xcf, 0xdd, 0xe7, 0x7b, 0x41, 0x6a, 0x42, 0x47, 0x72, 0x9a, 0x17, 0x32, 0x7b, 0x80,
-	0xb8, 0x1e, 0x15, 0x6a, 0x6a, 0xd0, 0x39, 0x39, 0x20, 0x3f, 0xc3, 0xc1, 0xa1, 0x7e, 0x43, 0x9b,
-	0xb0, 0x5b, 0x96, 0x1f, 0xdb, 0x35, 0xf1, 0x04, 0xa2, 0xde, 0x68, 0x42, 0x4d, 0xc9, 0xa5, 0xff,
-	0x08, 0x31, 0xfb, 0x81, 0xf8, 0x09, 0xed, 0x17, 0xda, 0x50, 0x51, 0x42, 0x34, 0x2d, 0x4f, 0xdf,
-	0x71, 0xaa, 0xce, 0x22, 0xe8, 0xed, 0xb6, 0xda, 0x80, 0xf1, 0x7b, 0x38, 0xfe, 0x89, 0xf9, 0xfa,
-	0x53, 0x95, 0x8a, 0x45, 0x5d, 0x04, 0x75, 0xf1, 0x1c, 0x88, 0x76, 0x83, 0xab, 0x06, 0xae, 0x5e,
-	0x24, 0xf1, 0x47, 0xb8, 0xae, 0x3f, 0x24, 0xd5, 0x46, 0x6b, 0xec, 0x49, 0x19, 0xcd, 0xff, 0xd9,
-	0x4c, 0xb7, 0xfb, 0x4e, 0x3a, 0xbb, 0xc8, 0x59, 0xc9, 0xba, 0x83, 0x5f, 0xbb, 0xfb, 0x0d, 0x00,
-	0x00, 0xff, 0xff, 0x9b, 0x8e, 0x2c, 0xf1, 0x50, 0x01, 0x00, 0x00,
+	// 292 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x91, 0xcf, 0x4b, 0xfb, 0x40,
+	0x10, 0xc5, 0xbf, 0x9b, 0x7e, 0x4d, 0x75, 0xb0, 0xa5, 0x8c, 0x55, 0x4b, 0x41, 0x90, 0xe0, 0xa1,
+	0xbd, 0x14, 0x89, 0x57, 0x11, 0x4a, 0xac, 0x50, 0x6a, 0x5b, 0x48, 0x10, 0xf1, 0x14, 0xd6, 0x32,
+	0xd4, 0xa5, 0xb2, 0xbb, 0x64, 0x47, 0xfd, 0x2b, 0x3c, 0xfa, 0xff, 0x0a, 0xf9, 0xa1, 0x16, 0xa2,
+	0xb7, 0x7d, 0xc3, 0xe7, 0xed, 0xec, 0x7b, 0x0b, 0xad, 0x37, 0xc9, 0xa9, 0xb4, 0x6a, 0x64, 0x33,
+	0xc3, 0x06, 0x9b, 0xa5, 0x0c, 0x42, 0xd8, 0x8f, 0x69, 0xad, 0x1c, 0x67, 0x92, 0x95, 0xd1, 0x88,
+	0xf0, 0x5f, 0xab, 0xd5, 0xa6, 0x27, 0x4e, 0xc5, 0x60, 0x2f, 0xce, 0xcf, 0xd8, 0x06, 0x4f, 0xd9,
+	0x9e, 0x97, 0x4f, 0x3c, 0x65, 0x83, 0x0f, 0x01, 0xdd, 0x9f, 0xa6, 0x98, 0x9c, 0x35, 0xda, 0x11,
+	0x5e, 0x82, 0xef, 0x58, 0xf2, 0x8b, 0xcb, 0xed, 0xed, 0xf0, 0x6c, 0x54, 0x6d, 0xad, 0xc3, 0x47,
+	0x49, 0xce, 0xc6, 0xa5, 0x07, 0xbb, 0xb0, 0xc3, 0x66, 0x43, 0xba, 0xdc, 0x54, 0x88, 0x60, 0x08,
+	0x7e, 0xc1, 0xa1, 0x0f, 0xde, 0x72, 0xd6, 0xf9, 0x87, 0xc7, 0x70, 0xb0, 0x98, 0x46, 0xb3, 0x74,
+	0x7c, 0x1b, 0x4f, 0xc6, 0xd7, 0x0f, 0xe9, 0x74, 0x91, 0xde, 0x25, 0x93, 0x8e, 0x08, 0x86, 0xd0,
+	0x8a, 0x9e, 0x15, 0x69, 0x9e, 0x93, 0x73, 0x72, 0x4d, 0xd8, 0x83, 0xe6, 0xca, 0x68, 0x26, 0xcd,
+	0xe5, 0x9d, 0x95, 0x0c, 0xe6, 0xd0, 0x4a, 0x28, 0x7b, 0xa5, 0xac, 0x42, 0xeb, 0x72, 0xff, 0x6a,
+	0x2f, 0x1b, 0x69, 0x54, 0x8d, 0x84, 0xef, 0x02, 0x1a, 0xf7, 0x92, 0xf1, 0x06, 0xda, 0x45, 0x52,
+	0xca, 0x8a, 0x97, 0xe0, 0x61, 0x6d, 0x05, 0xfd, 0x93, 0x3f, 0x9b, 0xc1, 0x2b, 0xd8, 0x5d, 0x5a,
+	0xd2, 0xd1, 0x93, 0x64, 0x3c, 0xfa, 0x42, 0xb7, 0xc2, 0xf5, 0xbf, 0xe7, 0x5b, 0x49, 0x06, 0xe2,
+	0x5c, 0x3c, 0xfa, 0xf9, 0x2f, 0x5f, 0x7c, 0x06, 0x00, 0x00, 0xff, 0xff, 0x18, 0x0a, 0xbf, 0xb0,
+	0xf6, 0x01, 0x00, 0x00,
 }

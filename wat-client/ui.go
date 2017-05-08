@@ -14,7 +14,7 @@ const (
 	messageView = "messageView"
 )
 
-func RunUi(sendChannel, recvChannel chan string) {
+func RunUi(sendChannel chan<- string, recvChannel <-chan string) {
 	g, err := gocui.NewGui(gocui.OutputNormal)
 
 	if err != nil {
