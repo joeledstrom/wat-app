@@ -2,14 +2,9 @@ package main
 
 import (
 	"flag"
-	"log"
-	"context"
-
-	pb "github.com/joeledstrom/wat-app/wat-api"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-
 	"fmt"
+
+	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
 )
 
 
@@ -25,40 +20,18 @@ func main() {
 		return
 	}
 
+	client := wat.NewClient()
 
-	conn, err := grpc.Dial("127.0.0.1:9595", grpc.WithInsecure())
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer conn.Close()
+	err := client.Connect("127.0.0.1:9595", *nick)
 
-	client := pb.NewWatClient(conn)
-
-
-	ip := "kaka"  // TODO: fetch this from http://bot.whatismyipaddress.com/
-
-	reg := &pb.Registration{Nick:*nick, Ip:ip}
-
-	resp, err := client.RegisterClient(context.Background(), reg)
-
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	if (resp.Status == pb.RegistrationResponse_NICK_ALREADY_IN_USE) {
-		fmt.Println("Nick Already in use. Try another nick")
+	if (err != nil) {
+		if _, ok := err.(*wat.NickAlreadyInUse); ok {
+			fmt.Println("Nick Already in use. Try another nick")
+		} else {
+			fmt.Printf("Error %s", err)
+		}
 		return
-	}
 
-
-	md := metadata.Pairs("session-token", resp.Token)
-
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
-
-
-	chatConn, err := client.OpenChat(ctx)
-	if err != nil {
-		log.Panicln(err)
 	}
 
 	sendChannel := make(chan string)
@@ -67,8 +40,8 @@ func main() {
 	go func() {
 		for {
 			content := <-sendChannel
-			msg := pb.ClientMessage{Content: content}
-			err = chatConn.Send(&msg)
+			msg := wat.ClientMessage{Content: content}
+			err := client.SendMessage(msg)
 			if err != nil {
 				break
 			}
@@ -77,7 +50,7 @@ func main() {
 
 	go func() {
 		for {
-			msg, err := chatConn.Recv()
+			msg, err := client.RecvMessage()
 			if err != nil {
 				break
 			}
