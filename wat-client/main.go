@@ -51,7 +51,7 @@ func main() {
 	}
 
 
-	md := metadata.Pairs("token", resp.Token)
+	md := metadata.Pairs("session-token", resp.Token)
 
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
 

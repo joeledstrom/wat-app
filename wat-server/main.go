@@ -5,6 +5,7 @@ import (
 	"sync"
 	"net"
 	"log"
+	"errors"
 
 	pb "github.com/joeledstrom/wat-app/wat-api"
 	"golang.org/x/net/context"
@@ -14,19 +15,16 @@ import (
 )
 
 
-
 type client struct {
-	token uuid.UUID
-	nick string
-	ip string
-	outChannel chan<- *pb.ServerMessage
+	sessionToken string
+	nick         string
+	ip           string
+	outChannel   chan<- *pb.ServerMessage
 }
-
-
 
 type watServer struct {
 	clientsMutex	sync.Mutex
-	clientsByToken 	map[uuid.UUID]*client
+	clientsByToken 	map[string]*client
 	clientsByNick	map[string]*client
 }
 
@@ -37,9 +35,8 @@ func newWatServer() *watServer {
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
 
-	s.clientsByToken = make(map[uuid.UUID]*client)
+	s.clientsByToken = make(map[string]*client)
 	s.clientsByNick = make(map[string]*client)
-
 
 	return s
 }
@@ -52,13 +49,10 @@ func (s *watServer) broadcastMessage(msg *pb.ServerMessage) {
 	defer s.clientsMutex.Unlock()
 
 	for _, c := range s.clientsByToken {
-		if (c.outChannel != nil) {
+		if c.outChannel != nil {
 			c.outChannel <- msg
 		}
 	}
-
-
-
 }
 
 
@@ -68,29 +62,27 @@ func (s *watServer) RegisterClient(_ context.Context, reg *pb.Registration) (*pb
 
 	if found {
 		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_NICK_ALREADY_IN_USE}, nil
-
 	} else {
-		c := &client{}
-
-
-		c.token = uuid.New()
-		c.nick = reg.Nick
-		c.ip = reg.Ip
+		c := &client{
+			sessionToken: uuid.New().String(),
+			nick: reg.Nick,
+			ip: reg.Ip,
+		}
 
 		s.clientsMutex.Lock()
 		defer s.clientsMutex.Unlock()
 		s.clientsByNick[c.nick] = c
-		s.clientsByToken[c.token] = c
+		s.clientsByToken[c.sessionToken] = c
 
 
-		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_OK, Token: c.token.String()}, nil
+		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_OK, Token: c.sessionToken}, nil
 	}
 
 }
 
 
 
-func (s *watServer) setOutChannel(token uuid.UUID, outChannel chan *pb.ServerMessage) (string, string, bool) {
+func (s *watServer) setOutChannelAndReturnClientInfo(token string, outChannel chan *pb.ServerMessage) (string, string, bool) {
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
 	c, found := s.clientsByToken[token]
@@ -110,16 +102,13 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 	md, ok := metadata.FromIncomingContext(stream.Context())
 
 	if ok  {
-		tokens, ok := md["token"]
+		tokenMd, ok := md["session-token"]
 
-		if ok && len(tokens) == 1 {
+		if ok && len(tokenMd) == 1 {
 
-			token := tokens[0]
-			t, _ := uuid.Parse(token)
+			token := tokenMd[0]
 			outChannel := make(chan *pb.ServerMessage)
-
-			nick, ip, ok := s.setOutChannel(t, outChannel)
-
+			nick, ip, ok := s.setOutChannelAndReturnClientInfo(token, outChannel)
 
 			if ok {
 
@@ -135,7 +124,7 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 							// remove client
 							s.clientsMutex.Lock()
 							defer s.clientsMutex.Unlock()
-							delete(s.clientsByToken, t)
+							delete(s.clientsByToken, token)
 							delete(s.clientsByNick, nick)
 
 							break;
@@ -162,14 +151,10 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 
 				return nil
 			}
-
-
-
 		}
-
 	}
 
-	return nil  // should return an error here
+	return errors.New("valid sessionToken missing")
 }
 
 
@@ -185,5 +170,4 @@ func main() {
 	pb.RegisterWatServer(server, newWatServer())
 
 	server.Serve(lis)
-
 }
