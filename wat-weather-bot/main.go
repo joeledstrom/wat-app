@@ -5,20 +5,22 @@ import (
 	"fmt"
 
 	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
+	"strings"
 )
 
 
 
 var (
-	nick = flag.String("nick", "", "Nickname")
+	nick = flag.String("nick", "SMHI-WeatherBot", "Nickname")
 	host = flag.String("host", "", "Hostname or IP")
 	port = flag.Int("port", 9595, "Port")
 )
 
+
 func main() {
 	flag.Parse()
 
-	if (*nick == "" || *host == "") {
+	if (*host == "") {
 		flag.PrintDefaults()
 		return
 	}
@@ -37,31 +39,24 @@ func main() {
 
 	}
 
-	sendChannel := make(chan string)
-	recvChannel := make(chan string)
+	err = messageRecvLoop(client)
 
-	go func() {
-		for {
-			content := <-sendChannel
-			msg := wat.ClientMessage{Content: content}
-			err := client.SendMessage(msg)
-			if err != nil {
-				break
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			msg, err := client.RecvMessage()
-			if err != nil {
-				break
-			}
-			recvChannel <- (msg.Nick + ": " + msg.Content)
-		}
-	}()
-
-
-	RunUi(sendChannel, recvChannel)
+	fmt.Printf("Lost connection: %s\n", err)
 }
 
+func messageRecvLoop(client wat.Client) error {
+	for {
+		msg, err := client.RecvMessage()
+		if err != nil {
+			return err
+		}
+
+		if strings.HasPrefix(msg.Content, "!weather") {
+			err := client.SendMessage(wat.ClientMessage{"Current weather..... TODO"})
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
