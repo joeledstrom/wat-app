@@ -7,10 +7,14 @@ services:
       dockerfile: wat-server/Dockerfile
     ports:
       - 9595:9595
+    volumes:
+      - ./wat-server:/go/src/github.com/joeledstrom/wat-app/wat-server
 
 
   weather-bot:
     build:
       context: .
       dockerfile: wat-weather-bot/Dockerfile
-    command: -host server
+    command: realize run -- -host server
+    volumes:
+      - ./wat-weather-bot:/go/src/github.com/joeledstrom/wat-app/wat-weather-bot

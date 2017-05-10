@@ -3,16 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"strings"
 	"time"
-	"log"
 
-	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
 	"errors"
+	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
 	"strconv"
 )
-
-
 
 var (
 	nick = flag.String("nick", "SMHI-WeatherBot", "Nickname")
@@ -83,7 +81,6 @@ func messageRecvLoop() error {
 		}
 	}
 }
-
 
 func getTemperatureMessage(loc *wat.Location) (string, error) {
 	parts := strings.Split(loc.Loc, ",")

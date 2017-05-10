@@ -1,34 +1,33 @@
 package main
 
 import (
-	"fmt"
-	"sync"
-	"net"
-	"log"
 	"errors"
 	"flag"
+	"fmt"
+	"log"
+	"net"
 	"strings"
+	"sync"
 
+	"github.com/google/uuid"
 	pb "github.com/joeledstrom/wat-app/wat-api"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
 
-
 type watClient struct {
-	sessionToken 	string
-	nick         	string
-	city         	string
-	loc		string
-	outChannel   	chan<- *pb.ServerMessage
+	sessionToken string
+	nick         string
+	city         string
+	loc          string
+	outChannel   chan<- *pb.ServerMessage
 }
 
 type watServer struct {
-	clientsMutex	sync.Mutex
-	clientsByToken 	map[string]*watClient
-	clientsByNick	map[string]*watClient
+	clientsMutex   sync.Mutex
+	clientsByToken map[string]*watClient
+	clientsByNick  map[string]*watClient
 }
 
 func newWatServer() *watServer {
@@ -58,7 +57,6 @@ func (s *watServer) broadcastMessage(msg *pb.ServerMessage) {
 	}
 }
 
-
 func (s *watServer) RegisterClient(_ context.Context, reg *pb.Registration) (*pb.RegistrationResponse, error) {
 
 	_, found := s.clientsByNick[reg.Nick]
@@ -68,9 +66,9 @@ func (s *watServer) RegisterClient(_ context.Context, reg *pb.Registration) (*pb
 	} else {
 		client := &watClient{
 			sessionToken: uuid.New().String(),
-			nick: reg.Nick,
-			city: reg.Location.City,
-			loc: reg.Location.Loc,
+			nick:         reg.Nick,
+			city:         reg.Location.City,
+			loc:          reg.Location.Loc,
 		}
 
 		s.clientsMutex.Lock()
@@ -78,13 +76,10 @@ func (s *watServer) RegisterClient(_ context.Context, reg *pb.Registration) (*pb
 		s.clientsByNick[client.nick] = client
 		s.clientsByToken[client.sessionToken] = client
 
-
 		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_OK, Token: client.sessionToken}, nil
 	}
 
 }
-
-
 
 func (s *watServer) setOutChannelAndReturnClient(token string, outChannel chan *pb.ServerMessage) (watClient, bool) {
 	s.clientsMutex.Lock()
@@ -100,12 +95,11 @@ func (s *watServer) setOutChannelAndReturnClient(token string, outChannel chan *
 	return *client, true
 }
 
-
 func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 
 	md, ok := metadata.FromIncomingContext(stream.Context())
 
-	if ok  {
+	if ok {
 		tokenMd, ok := md["session-token"]
 
 		if ok && len(tokenMd) == 1 {
@@ -131,7 +125,7 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 							delete(s.clientsByToken, token)
 							delete(s.clientsByNick, client.nick)
 
-							break;
+							break
 						}
 					}
 				}()
@@ -145,7 +139,7 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 						break
 					}
 					serverMsg := &pb.ServerMessage{
-						Nick: client.nick,
+						Nick:    client.nick,
 						Content: msg.Content,
 					}
 
@@ -165,12 +159,9 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 	return errors.New("valid sessionToken missing")
 }
 
-
-
 var (
 	port = flag.Int("port", 9595, "Listen on port")
 )
-
 
 func main() {
 

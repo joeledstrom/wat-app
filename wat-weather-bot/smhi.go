@@ -1,21 +1,21 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
-	"encoding/json"
-	"math"
-	"errors"
 )
 
-type smhiProvider struct {}
+type smhiProvider struct{}
 
 func NewSmhiProvider() WeatherProvider {
 	return &smhiProvider{}
 }
 
-func (*smhiProvider) GetCurrentTemperature(lat, lon float64) (float64, string,  error) {
+func (*smhiProvider) GetCurrentTemperature(lat, lon float64) (float64, string, error) {
 
 	fc, err := getForecast(lat, lon)
 
@@ -61,7 +61,7 @@ const base = "http://opendata-download-metfcst.smhi.se/api/category/pmp2g/versio
 
 func getForecast(lat, lon float64) (*forecast, error) {
 
-	url := fmt.Sprintf(base + "geotype/point/lon/%f/lat/%f/data.json", lon, lat)
+	url := fmt.Sprintf(base+"geotype/point/lon/%f/lat/%f/data.json", lon, lat)
 
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 
@@ -111,14 +111,9 @@ func findDataPointClosestToNow(fc *forecast) dataPoint {
 
 func findParameterByName(name string, parameters []parameter) (*parameter, error) {
 	for _, p := range parameters {
-		if (p.Name == name) {
+		if p.Name == name {
 			return &p, nil
 		}
 	}
 	return nil, errors.New("No parameter by that name")
 }
-
-
-
-
-

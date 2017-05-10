@@ -10,6 +10,8 @@ FROM golang:1.8
 
 RUN go get -u github.com/kardianos/govendor
 
+RUN go get -u github.com/tockins/realize
+
 RUN mkdir -p /go/src/github.com/joeledstrom/wat-app/vendor
 
 WORKDIR /go/src/github.com/joeledstrom/wat-app
@@ -24,6 +26,6 @@ COPY wat-weather-bot wat-weather-bot
 
 WORKDIR wat-weather-bot
 
-RUN go build
+#RUN go build
 
-ENTRYPOINT ["./wat-weather-bot"]
+CMD realize run

@@ -10,6 +10,8 @@ FROM golang:1.8
 
 RUN go get -u github.com/kardianos/govendor
 
+RUN go get -u github.com/tockins/realize
+
 RUN mkdir -p /go/src/github.com/joeledstrom/wat-app/vendor
 
 WORKDIR /go/src/github.com/joeledstrom/wat-app
@@ -23,6 +25,6 @@ COPY wat-server wat-server
 
 WORKDIR wat-server
 
-RUN go build
+#RUN go build
 
-ENTRYPOINT ["./wat-server"]
+CMD realize run
