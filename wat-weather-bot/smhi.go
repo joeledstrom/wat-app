@@ -68,11 +68,12 @@ func getForecast(lat, lon float64) (*forecast, error) {
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", "application/json")
 	resp, err := httpClient.Do(req)
-	defer resp.Body.Close()
 
 	if err != nil {
 		return nil, err
 	}
+
+	defer resp.Body.Close()
 
 	var fc forecast
 	err = json.NewDecoder(resp.Body).Decode(&fc)

@@ -137,11 +137,12 @@ func getLocation() (*pb.Location, error) {
 	req, _ := http.NewRequest("GET", "http://ipinfo.io", nil)
 	req.Header.Set("Accept", "application/json")
 	resp, err := httpClient.Do(req)
-	defer resp.Body.Close()
 
 	if err != nil {
 		return nil, err
 	}
+
+	defer resp.Body.Close()
 
 	var loc pb.Location
 	err = json.NewDecoder(resp.Body).Decode(&loc)
