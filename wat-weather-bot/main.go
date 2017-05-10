@@ -8,6 +8,8 @@ import (
 	"log"
 
 	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
+	"errors"
+	"strconv"
 )
 
 
@@ -18,6 +20,9 @@ var (
 	port = flag.Int("port", 9595, "Port")
 )
 
+type WeatherProvider interface {
+	GetCurrentTemperature(lat, lon float64) (float64, string, error)
+}
 
 func main() {
 	flag.Parse()
@@ -26,7 +31,6 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-
 
 	for {
 		err := messageRecvLoop()
@@ -43,7 +47,6 @@ func main() {
 		log.Println("Retrying/reconnecting in 5")
 		time.Sleep(5 * time.Second)
 	}
-
 }
 
 func messageRecvLoop() error {
@@ -55,20 +58,49 @@ func messageRecvLoop() error {
 		return err
 	}
 
+	log.Println("wat-weather-bot listening for messages")
+
 	for {
-		log.Println("wat-weather-bot listening for messages")
 		msg, err := client.RecvMessage()
 		if err != nil {
 			return err
 		}
 
 		if strings.HasPrefix(msg.Content, "!weather") {
-			forecast := "Current temperature in " + msg.Location.City + ": " + "5 C"
-			err := client.SendMessage(wat.ClientMessage{forecast})
+
+			tempMsg, err := getTemperatureMessage(msg.Location)
+
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			err = client.SendMessage(wat.ClientMessage{tempMsg})
 
 			if err != nil {
 				return err
 			}
 		}
 	}
+}
+
+
+func getTemperatureMessage(loc *wat.Location) (string, error) {
+	parts := strings.Split(loc.Loc, ",")
+
+	if len(parts) == 2 {
+		lat, err := strconv.ParseFloat(parts[0], 64)
+		lon, err := strconv.ParseFloat(parts[1], 64)
+
+		if err == nil {
+			temp, unit, err := NewSmhiProvider().GetCurrentTemperature(lat, lon)
+
+			if err == nil {
+				format := "Current temperature in %s: %.1f °%s"
+				return fmt.Sprintf(format, loc.City, temp, unit[:1]), nil
+			}
+		}
+	}
+
+	return "", errors.New("Failed to get weather")
 }
