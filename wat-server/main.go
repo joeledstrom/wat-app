@@ -95,68 +95,87 @@ func (s *watServer) setOutChannelAndReturnClient(token string, outChannel chan *
 	return *client, true
 }
 
-func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
+func (s *watServer) removeClient(client watClient) {
+	log.Printf("Removing client: %s \n", client.nick)
+
+	s.clientsMutex.Lock()
+	defer s.clientsMutex.Unlock()
+	delete(s.clientsByToken, client.sessionToken)
+	delete(s.clientsByNick, client.nick)
+}
+
+func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) (err error) {
 
 	md, ok := metadata.FromIncomingContext(stream.Context())
 
-	if ok {
-		tokenMd, ok := md["session-token"]
+	err = errors.New("valid sessionToken missing")
 
-		if ok && len(tokenMd) == 1 {
-
-			token := tokenMd[0]
-			outChannel := make(chan *pb.ServerMessage)
-			client, ok := s.setOutChannelAndReturnClient(token, outChannel)
-
-			if ok {
-
-				// start sending goroutine
-				go func() {
-					for msg := range outChannel {
-						err := stream.Send(msg)
-
-						// if a message cant be sent to the client
-						if err != nil {
-							log.Printf("Removing client: %s \n", client.nick)
-
-							// remove client
-							s.clientsMutex.Lock()
-							defer s.clientsMutex.Unlock()
-							delete(s.clientsByToken, token)
-							delete(s.clientsByNick, client.nick)
-
-							break
-						}
-					}
-				}()
-
-				// start receive loop
-				for {
-
-					msg, err := stream.Recv()
-					if err != nil {
-						log.Printf("Lost connection to: %s \n", client.nick)
-						break
-					}
-					serverMsg := &pb.ServerMessage{
-						Nick:    client.nick,
-						Content: msg.Content,
-					}
-
-					// only attach location when a client sends a "bot command"
-					if strings.HasPrefix(msg.Content, "!") {
-						serverMsg.Location = &pb.Location{client.city, client.loc}
-					}
-
-					s.broadcastMessage(serverMsg)
-				}
-
-				return nil
-			}
-		}
+	if !ok {
+		return
 	}
 
-	return errors.New("valid sessionToken missing")
+	tokenMd, ok := md["session-token"]
+
+	if !ok || len(tokenMd) != 1 {
+		return
+	}
+
+	token := tokenMd[0]
+	outChannel := make(chan *pb.ServerMessage)
+	client, ok := s.setOutChannelAndReturnClient(token, outChannel)
+
+	if !ok {
+		return
+	}
+
+	// buffered channel so that the receiving goroutine wouldn't block indefinitely
+	// if the sending goroutine cancelled first.
+	// which would be a memory leak!
+	cancelled := make(chan bool, 2)
+
+	// start sending goroutine
+	go func() {
+
+		for {
+			select {
+			case msg := <-outChannel:
+				err := stream.Send(msg)
+
+				if err != nil {
+					log.Printf("Error sending to: %s \n", client.nick)
+					cancelled <- true
+				}
+			case <-cancelled:
+				s.removeClient(client)
+				break
+			}
+		}
+	}()
+
+	// start receive loop
+	for {
+
+		msg, err := stream.Recv()
+		if err != nil {
+			log.Printf("Error recv. from: %s \n", client.nick)
+			cancelled <- true
+			break
+		}
+		serverMsg := &pb.ServerMessage{
+			Nick:    client.nick,
+			Content: msg.Content,
+		}
+
+		// only attach location when a client sends a "bot command"
+		if strings.HasPrefix(msg.Content, "!") {
+			serverMsg.Location = &pb.Location{client.city, client.loc}
+		}
+
+		s.broadcastMessage(serverMsg)
+	}
+
+	return nil
+
 }
 
 var (
