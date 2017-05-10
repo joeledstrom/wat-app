@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: wat-server/Dockerfile
+    ports:
+      - 9595:9595
+
+
+  weather-bot:
+    build:
+      context: .
+      dockerfile: wat-weather-bot/Dockerfile
+    command: -host server

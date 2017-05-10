@@ -1,6 +1,6 @@
 #
 # Note this image needs to be built from the main wat-app dir with the command
-#   docker build --tag wat-client -f wat-client/Dockerfile .
+#   docker build -f wat-server/Dockerfile .
 #
 # The reason for this is that it needs access to the vendor directory.
 # and you cant use COPY with paths like ../vendor
@@ -19,11 +19,10 @@ COPY vendor/vendor.json vendor
 RUN govendor sync
 
 COPY wat-api wat-api
-COPY wat-client-api-lib wat-client-api-lib
-COPY wat-client wat-client
+COPY wat-server wat-server
 
-WORKDIR wat-client
+WORKDIR wat-server
 
 RUN go build
 
-ENTRYPOINT ["./wat-client"]
+ENTRYPOINT ["./wat-server"]

@@ -20,10 +20,10 @@ RUN govendor sync
 
 COPY wat-api wat-api
 COPY wat-client-api-lib wat-client-api-lib
-COPY wat-client wat-client
+COPY wat-weather-bot wat-weather-bot
 
-WORKDIR wat-client
+WORKDIR wat-weather-bot
 
 RUN go build
 
-ENTRYPOINT ["./wat-client"]
+ENTRYPOINT ["./wat-weather-bot"]
