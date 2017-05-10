@@ -4,12 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
-	"errors"
 	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
-	"strconv"
 )
 
 var (
@@ -66,12 +65,7 @@ func messageRecvLoop() error {
 
 		if strings.HasPrefix(msg.Content, "!weather") {
 
-			tempMsg, err := getTemperatureMessage(msg.Location)
-
-			if err != nil {
-				log.Println(err)
-				continue
-			}
+			tempMsg := getTemperatureMessage(msg.Location)
 
 			err = client.SendMessage(wat.ClientMessage{tempMsg})
 
@@ -82,7 +76,7 @@ func messageRecvLoop() error {
 	}
 }
 
-func getTemperatureMessage(loc *wat.Location) (string, error) {
+func getTemperatureMessage(loc *wat.Location) string {
 	parts := strings.Split(loc.Loc, ",")
 
 	if len(parts) == 2 {
@@ -94,10 +88,12 @@ func getTemperatureMessage(loc *wat.Location) (string, error) {
 
 			if err == nil {
 				format := "Current temperature in %s: %.1f °%s"
-				return fmt.Sprintf(format, loc.City, temp, unit[:1]), nil
+				return fmt.Sprintf(format, loc.City, temp, unit[:1])
+			} else {
+				log.Println("Weather fetch failed: ", err)
 			}
 		}
 	}
 
-	return "", errors.New("Failed to get weather")
+	return "Failed to fetch weather data. Please try again."
 }
