@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
+	"time"
+	"log"
 
 	wat "github.com/joeledstrom/wat-app/wat-client-api-lib"
-	"strings"
 )
 
 
@@ -20,39 +22,49 @@ var (
 func main() {
 	flag.Parse()
 
-	if (*host == "") {
+	if *host == "" {
 		flag.PrintDefaults()
 		return
 	}
 
-	client := wat.NewClient()
 
+	for {
+		err := messageRecvLoop()
+
+		if err != nil {
+			if _, ok := err.(*wat.NickAlreadyInUse); ok {
+				fmt.Println("Nick Already in use. Try another nick")
+				return
+			}
+
+		}
+
+		log.Printf("Error: %s\n", err)
+		log.Println("Retrying/reconnecting in 5")
+		time.Sleep(5 * time.Second)
+	}
+
+}
+
+func messageRecvLoop() error {
+	client := wat.NewClient()
+	defer client.Close()
 	err := client.Connect(fmt.Sprintf("%s:%d", *host, *port), *nick)
 
 	if err != nil {
-		if _, ok := err.(*wat.NickAlreadyInUse); ok {
-			fmt.Println("Nick Already in use. Try another nick")
-		} else {
-			fmt.Printf("Error connecting: %s\n", err)
-		}
-		return
-
+		return err
 	}
 
-	err = messageRecvLoop(client)
-
-	fmt.Printf("Lost connection: %s\n", err)
-}
-
-func messageRecvLoop(client wat.Client) error {
 	for {
+		log.Println("wat-weather-bot listening for messages")
 		msg, err := client.RecvMessage()
 		if err != nil {
 			return err
 		}
 
 		if strings.HasPrefix(msg.Content, "!weather") {
-			err := client.SendMessage(wat.ClientMessage{"Current weather..... TODO"})
+			forecast := "Current temperature in " + msg.Location.City + ": " + "5 C"
+			err := client.SendMessage(wat.ClientMessage{forecast})
 
 			if err != nil {
 				return err

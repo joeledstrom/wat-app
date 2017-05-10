@@ -2,6 +2,9 @@ package wat_client_api_lib
 
 import (
 	"errors"
+	"net/http"
+	"time"
+	"encoding/json"
 
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc"
@@ -23,8 +26,14 @@ type ClientMessage struct {
 type ServerMessage struct {
 	Nick string
 	Content string
-	// optional<location>
+	Location *Location
 }
+
+type Location struct {
+	City string
+	Loc string
+}
+
 
 type NickAlreadyInUse struct {}
 
@@ -50,9 +59,13 @@ func (c *client) Connect(address, nick string) (e error) {
 
 	watClient := pb.NewWatClient(conn)
 
-	ip := "kaka"  // TODO: fetch this from http://bot.whatismyipaddress.com/
 
-	reg := &pb.Registration{Nick:nick, Ip:ip}
+	loc, err := getLocation()
+	if err != nil {
+		return err
+	}
+
+	reg := &pb.Registration{Nick:nick, Location:loc}
 
 	resp, err := watClient.RegisterClient(context.Background(), reg)
 
@@ -97,6 +110,10 @@ func (c *client) RecvMessage() (*ServerMessage, error) {
 		Content: pbMsg.Content,
 	}
 
+	if pbMsg.Location != nil {
+		msg.Location = &Location{pbMsg.Location.City, pbMsg.Location.Loc}
+	}
+
 	return msg, nil
 }
 
@@ -114,6 +131,27 @@ type client struct {
 	chatConn 	pb.Wat_OpenChatClient
 }
 
+func getLocation() (*pb.Location, error) {
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+
+	req, _ := http.NewRequest("GET", "http://ipinfo.io", nil)
+	req.Header.Set("Accept", "application/json")
+	resp, err := httpClient.Do(req)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var loc pb.Location
+	err = json.NewDecoder(resp.Body).Decode(&loc)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &loc, nil
+}
 
 
 

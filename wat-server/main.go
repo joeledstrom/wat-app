@@ -6,6 +6,8 @@ import (
 	"net"
 	"log"
 	"errors"
+	"flag"
+	"strings"
 
 	pb "github.com/joeledstrom/wat-app/wat-api"
 	"golang.org/x/net/context"
@@ -15,17 +17,18 @@ import (
 )
 
 
-type client struct {
-	sessionToken string
-	nick         string
-	ip           string
-	outChannel   chan<- *pb.ServerMessage
+type watClient struct {
+	sessionToken 	string
+	nick         	string
+	city         	string
+	loc		string
+	outChannel   	chan<- *pb.ServerMessage
 }
 
 type watServer struct {
 	clientsMutex	sync.Mutex
-	clientsByToken 	map[string]*client
-	clientsByNick	map[string]*client
+	clientsByToken 	map[string]*watClient
+	clientsByNick	map[string]*watClient
 }
 
 func newWatServer() *watServer {
@@ -35,8 +38,8 @@ func newWatServer() *watServer {
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
 
-	s.clientsByToken = make(map[string]*client)
-	s.clientsByNick = make(map[string]*client)
+	s.clientsByToken = make(map[string]*watClient)
+	s.clientsByNick = make(map[string]*watClient)
 
 	return s
 }
@@ -63,37 +66,38 @@ func (s *watServer) RegisterClient(_ context.Context, reg *pb.Registration) (*pb
 	if found {
 		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_NICK_ALREADY_IN_USE}, nil
 	} else {
-		c := &client{
+		client := &watClient{
 			sessionToken: uuid.New().String(),
 			nick: reg.Nick,
-			ip: reg.Ip,
+			city: reg.Location.City,
+			loc: reg.Location.Loc,
 		}
 
 		s.clientsMutex.Lock()
 		defer s.clientsMutex.Unlock()
-		s.clientsByNick[c.nick] = c
-		s.clientsByToken[c.sessionToken] = c
+		s.clientsByNick[client.nick] = client
+		s.clientsByToken[client.sessionToken] = client
 
 
-		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_OK, Token: c.sessionToken}, nil
+		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_OK, Token: client.sessionToken}, nil
 	}
 
 }
 
 
 
-func (s *watServer) setOutChannelAndReturnClientInfo(token string, outChannel chan *pb.ServerMessage) (string, string, bool) {
+func (s *watServer) setOutChannelAndReturnClient(token string, outChannel chan *pb.ServerMessage) (watClient, bool) {
 	s.clientsMutex.Lock()
 	defer s.clientsMutex.Unlock()
-	c, found := s.clientsByToken[token]
+	client, found := s.clientsByToken[token]
 
 	if !found {
-		return "", "", false
+		return watClient{}, false
 	}
 
-	c.outChannel = outChannel
+	client.outChannel = outChannel
 
-	return c.nick, c.ip, true
+	return *client, true
 }
 
 
@@ -108,7 +112,7 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 
 			token := tokenMd[0]
 			outChannel := make(chan *pb.ServerMessage)
-			nick, ip, ok := s.setOutChannelAndReturnClientInfo(token, outChannel)
+			client, ok := s.setOutChannelAndReturnClient(token, outChannel)
 
 			if ok {
 
@@ -119,13 +123,13 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 
 						// if a message cant be sent to the client
 						if err != nil {
-							log.Printf("Removing client: %s \n", nick)
+							log.Printf("Removing client: %s \n", client.nick)
 
 							// remove client
 							s.clientsMutex.Lock()
 							defer s.clientsMutex.Unlock()
 							delete(s.clientsByToken, token)
-							delete(s.clientsByNick, nick)
+							delete(s.clientsByNick, client.nick)
 
 							break;
 						}
@@ -137,13 +141,17 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 
 					msg, err := stream.Recv()
 					if err != nil {
-						log.Printf("Lost connection to: %s \n", nick)
+						log.Printf("Lost connection to: %s \n", client.nick)
 						break
 					}
 					serverMsg := &pb.ServerMessage{
-						Nick: nick,
+						Nick: client.nick,
 						Content: msg.Content,
-						Ip: ip,
+					}
+
+					// only attach location when a client sends a "bot command"
+					if strings.HasPrefix(msg.Content, "!") {
+						serverMsg.Location = &pb.Location{client.city, client.loc}
 					}
 
 					s.broadcastMessage(serverMsg)
@@ -158,16 +166,24 @@ func (s *watServer) OpenChat(stream pb.Wat_OpenChatServer) error {
 }
 
 
+
+var (
+	port = flag.Int("port", 9595, "Listen on port")
+)
+
+
 func main() {
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9595))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("failed to listen: %v\n", err)
 	}
 
 	server := grpc.NewServer()
 
 	pb.RegisterWatServer(server, newWatServer())
+
+	log.Printf("wat-server started on port: %d\n", *port)
 
 	server.Serve(lis)
 }
