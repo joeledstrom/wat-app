@@ -1,0 +1,17 @@
+
+<md-toolbar color="primary">
+  <span>Chat (web-client-angular)</span>
+</md-toolbar>
+
+
+<md-card *ngFor="let m of messages | async">
+  <md-card-content>{{m.nick}}: {{m.content}}</md-card-content>
+</md-card>
+  
+<md-input-container>
+      <input [(ngModel)]="msg" mdInput placeholder="Type message">
+</md-input-container>
+
+<button md-raised-button (click)="onSendClicked()"><md-icon>send</md-icon></button>
+
+

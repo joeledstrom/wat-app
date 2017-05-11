@@ -76,6 +76,8 @@ func (s *watServer) RegisterClient(_ context.Context, reg *pb.Registration) (*pb
 		s.clientsByNick[client.nick] = client
 		s.clientsByToken[client.sessionToken] = client
 
+		log.Printf("Adding client: %s \n", client.nick)
+
 		return &pb.RegistrationResponse{Status: pb.RegistrationResponse_OK, Token: client.sessionToken}, nil
 	}
 
